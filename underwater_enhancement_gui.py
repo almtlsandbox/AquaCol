@@ -24,6 +24,8 @@ Usage
     python underwater_enhancement_gui.py
 """
 
+from __future__ import annotations
+
 import os
 import threading
 import tkinter as tk
@@ -797,6 +799,7 @@ class App(tk.Tk):
             return
 
         if self._is_preview:
+            assert self._preview_bgr is not None
             pw = self._preview_bgr.shape[1]
             ph = self._preview_bgr.shape[0]
             if not messagebox.askyesno(
@@ -884,17 +887,15 @@ class App(tk.Tk):
         if self._worker and self._worker.is_alive():
             return   # already running
 
-        params = dict(
-            patch_size          = max(3, int(round(self._patch_sl.value))),
-            omega               = round(self._omega_sl.value,  3),
-            t_min               = round(self._tmin_sl.value,   3),
-            use_guided_filter   = self._guided_var.get(),
-            apply_white_balance = self._wb_var.get(),
-            apply_denoise       = self._denoise_var.get(),
-            apply_clahe_post    = self._clahe_var.get(),
-            method              = self._method_var.get(),
-            water_type          = self._water_var.get(),
-        )
+        patch_size_v: int   = max(3, int(round(self._patch_sl.value)))
+        omega_v:      float = round(self._omega_sl.value,  3)
+        t_min_v:      float = round(self._tmin_sl.value,   3)
+        guided_v:     bool  = bool(self._guided_var.get())
+        wb_v:         bool  = bool(self._wb_var.get())
+        denoise_v:    bool  = bool(self._denoise_var.get())
+        clahe_v:      bool  = bool(self._clahe_var.get())
+        method_v:     str   = self._method_var.get()
+        water_v:      str   = self._water_var.get()
 
         tag = "(preview)" if is_preview else "(full resolution)"
         self._set_status(f"Enhancing… {tag}")
@@ -904,7 +905,18 @@ class App(tk.Tk):
 
         def _work():
             try:
-                result = enhance_underwater_image(img_copy, **params)
+                result = enhance_underwater_image(
+                    img_copy,
+                    patch_size=patch_size_v,
+                    omega=omega_v,
+                    t_min=t_min_v,
+                    use_guided_filter=guided_v,
+                    apply_white_balance=wb_v,
+                    apply_denoise=denoise_v,
+                    apply_clahe_post=clahe_v,
+                    method=method_v,
+                    water_type=water_v,
+                )
                 self.after(0, self._on_done, result, is_preview, img_copy)
             except Exception as exc:    # noqa: BLE001
                 self.after(0, self._on_error, str(exc))

@@ -59,6 +59,8 @@ Usage
     cv2.imwrite("out.png", results["enhanced"])
 """
 
+from __future__ import annotations
+
 import os
 import argparse
 
@@ -801,7 +803,7 @@ def compute_metrics(original: np.ndarray, enhanced: np.ndarray) -> dict:
 # Visualisation
 # ---------------------------------------------------------------------------
 
-def visualize_results(results: dict, save_path: str = None):
+def visualize_results(results: dict, save_path: str | None = None):
     """
     Display (and optionally save) a side-by-side comparison figure plus
     per-channel histograms.
