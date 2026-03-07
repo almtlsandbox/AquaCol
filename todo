@@ -1,0 +1,5 @@
+A progress bar or a rotated wheel or whatever when calculation is in progress
+Pan, rotate 90, zoom the image
+Single image display with a vertical separator before after
+Speedup calculation by applying the algo to a scale down preview of the image, and apply full view only at clik button apply full
+Support for video, slider to move to a frame, apply to this frame only, and apply full video only at clik button apply full

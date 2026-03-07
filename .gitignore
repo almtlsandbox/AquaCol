@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+
+# Output images (sample results, not source)
+*.jpg
+*.jpeg
+*.png
+*.tif
+*.tiff
+*.bmp
+*.webp
+
+# IDE / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
