@@ -596,9 +596,16 @@ def enhance_underwater_image(
     omega: float = 0.95,
     t_min: float = 0.2,
     use_guided_filter: bool = True,
+    guided_radius: int = 60,
+    guided_epsilon: float = 1e-3,
     apply_white_balance: bool = True,
+    wb_max_gain: float = 1.8,
     apply_denoise: bool = True,
+    denoise_strength: int = 7,
     apply_clahe_post: bool = True,
+    clahe_clip: float = 1.5,
+    clahe_tile: int = 8,
+    bg_top_fraction: float = 0.001,
     method: str = "red_channel",
     water_type: str = "coastal",
 ) -> dict:
@@ -629,6 +636,26 @@ def enhance_underwater_image(
         before CLAHE.  Suppresses noise amplification in dark regions.
     apply_clahe_post : bool
         If True, apply per-channel CLAHE as the final step.
+    guided_radius : int
+        Guided-filter neighbourhood radius (default 60).  Larger = more
+        spatial smoothing of the transmission map.
+    guided_epsilon : float
+        Guided-filter regularization term (default 1e-3).  Larger = softer
+        edges preserved in the transmission map.
+    wb_max_gain : float
+        Maximum per-channel gain for gray-world white balance (default 1.8).
+        Lower values give a more conservative colour correction.
+    denoise_strength : int
+        NL-means filter strength h (default 7).  Higher = smoother but softer.
+    clahe_clip : float
+        CLAHE clip limit (default 1.5).  Higher = more contrast, more noise.
+    clahe_tile : int
+        CLAHE tile grid side length in pixels (default 8 → 8×8 tiles).
+        Smaller tiles give finer local contrast but stronger artefacts.
+    bg_top_fraction : float
+        Fraction of highest-prior pixels used to estimate the background
+        light (default 0.001 = 0.1 %).  Increase if the background is
+        under-estimated.
     method : str
         ``"red_channel"``  – Red Channel Prior with per-channel transmission
                              (default, physically correct).
@@ -692,7 +719,9 @@ def enhance_underwater_image(
             prior = dark_channel(img_proc, patch_size)
 
         # Step 3 – Background light estimation
-        background_light = estimate_background_light(img_proc, prior)
+        background_light = estimate_background_light(
+            img_proc, prior, top_fraction=bg_top_fraction
+        )
 
         # Step 4 – Transmission map (red channel only)
         transmission = estimate_transmission(
@@ -705,7 +734,8 @@ def enhance_underwater_image(
                           + 0.5870 * img_proc[:, :, 1]
                           + 0.2989 * img_proc[:, :, 2])
             transmission = guided_filter(
-                guide_gray, transmission, radius=60, epsilon=1e-3
+                guide_gray, transmission,
+                radius=guided_radius, epsilon=guided_epsilon,
             )
 
         # Step 6 – Per-channel transmission (Beer-Lambert correction)
@@ -728,17 +758,20 @@ def enhance_underwater_image(
     # ------------------------------------------------------------------
     # Step 7 – White balance (gain capped to avoid over-correction)
     if apply_white_balance:
-        enhanced_float = white_balance_gray_world(enhanced_float)
+        enhanced_float = white_balance_gray_world(enhanced_float,
+                                                  max_gain=wb_max_gain)
 
     enhanced_uint8 = (enhanced_float * 255.0).astype(np.uint8)
 
     # Step 8 – Denoise (suppresses noise from low-transmission amplification)
     if apply_denoise:
-        enhanced_uint8 = denoise_image(enhanced_uint8)
+        enhanced_uint8 = denoise_image(enhanced_uint8,
+                                       strength=denoise_strength)
 
     # Step 9 – CLAHE
     if apply_clahe_post:
-        enhanced_uint8 = apply_clahe(enhanced_uint8)
+        enhanced_uint8 = apply_clahe(enhanced_uint8, clip_limit=clahe_clip,
+                                     tile_grid_size=(clahe_tile, clahe_tile))
 
     return {
         "enhanced":         enhanced_uint8,

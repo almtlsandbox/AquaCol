@@ -511,7 +511,7 @@ class App(tk.Tk):
         scr.pack(side="right", fill="y")
         cvs.pack(side="left", fill="both", expand=True)
 
-        self._sidebar = tk.Frame(cvs, bg=SIDEBAR_BG, padx=12, pady=8)
+        self._sidebar = tk.Frame(cvs, bg=SIDEBAR_BG, padx=2, pady=4)
         win = cvs.create_window((0, 0), window=self._sidebar, anchor="nw")
 
         self._sidebar.bind("<Configure>",
@@ -523,10 +523,19 @@ class App(tk.Tk):
                      lambda e: cvs.yview_scroll(
                          int(-1 * (e.delta / 120)), "units"))
 
-        self._fill_sidebar()
+        nb = ttk.Notebook(self._sidebar)
+        nb.pack(fill="both", expand=True)
+        basic_frm = tk.Frame(nb, bg=SIDEBAR_BG, padx=10, pady=4)
+        adv_frm   = tk.Frame(nb, bg=SIDEBAR_BG, padx=10, pady=4)
+        about_frm = tk.Frame(nb, bg=SIDEBAR_BG, padx=10, pady=4)
+        nb.add(basic_frm,  text="  Basic  ")
+        nb.add(adv_frm,    text="  Advanced  ")
+        nb.add(about_frm,  text="  About  ")
+        self._fill_sidebar(basic_frm)
+        self._fill_advanced_tab(adv_frm)
+        self._fill_about_tab(about_frm)
 
-    def _fill_sidebar(self):
-        s  = self._sidebar
+    def _fill_sidebar(self, s: tk.Frame):
         bg = SIDEBAR_BG
 
         def section(title: str):
@@ -620,13 +629,34 @@ class App(tk.Tk):
 
         for var, text in [
             (self._guided_var,  "Guided filter  (edge-preserving map)"),
-            (self._wb_var,      "White balance  (gray-world, ≤1.8×)"),
+            (self._wb_var,      "White balance  (gray-world)"),
             (self._denoise_var, "Denoise  (NL-means)"),
             (self._clahe_var,   "CLAHE  (adaptive contrast)"),
         ]:
             tk.Checkbutton(s, text=text, variable=var, bg=bg,
                            activebackground=bg,
                            command=self._schedule_preview).pack(anchor="w")
+
+        self._wb_gain_sl = LabelledSlider(
+            s, "WB max gain", from_=1.0, to=3.0, initial=1.8,
+            fmt="{:.1f}", bg=bg, on_change=self._schedule_preview)
+        self._wb_gain_sl.pack(fill="x", pady=(4, 0))
+        tk.Label(s, text="  Max per-channel white-balance boost",
+                 bg=bg, fg="#888", font=("Helvetica", 8)).pack(anchor="w")
+
+        self._denoise_sl = LabelledSlider(
+            s, "Denoise str.", from_=1, to=20, initial=7,
+            fmt="{:.0f}", bg=bg, on_change=self._schedule_preview)
+        self._denoise_sl.pack(fill="x", pady=(4, 0))
+        tk.Label(s, text="  Higher = smoother, less texture",
+                 bg=bg, fg="#888", font=("Helvetica", 8)).pack(anchor="w")
+
+        self._clahe_sl = LabelledSlider(
+            s, "CLAHE clip", from_=0.5, to=4.0, initial=1.5,
+            fmt="{:.1f}", bg=bg, on_change=self._schedule_preview)
+        self._clahe_sl.pack(fill="x", pady=(4, 0))
+        tk.Label(s, text="  Higher = more contrast, more noise",
+                 bg=bg, fg="#888", font=("Helvetica", 8)).pack(anchor="w")
 
         # ── Preview / run ─────────────────────────────────────────────────
         section("Run")
@@ -652,6 +682,139 @@ class App(tk.Tk):
                    command=self._save_result).pack(fill="x", pady=2)
 
         tk.Label(s, bg=bg).pack(pady=8)   # bottom padding
+
+    # ── Advanced tab ──────────────────────────────────────────────────────────
+
+    def _fill_advanced_tab(self, s: tk.Frame):
+        bg = SIDEBAR_BG
+
+        def section(title: str):
+            tk.Label(s, text=title, bg=bg, fg="#1a3a5c",
+                     font=("Helvetica", 10, "bold"),
+                     anchor="w").pack(fill="x", pady=(10, 1))
+            ttk.Separator(s, orient="horizontal").pack(fill="x", pady=(0, 4))
+
+        kw = dict(bg=bg, on_change=self._schedule_preview)
+
+        # ── Guided filter ─────────────────────────────────────────────────
+        section("Guided Filter")
+        tk.Label(s, text="Applied to smooth the transmission map",
+                 bg=bg, fg="#666", font=("Helvetica", 8),
+                 wraplength=265).pack(anchor="w", pady=(0, 4))
+
+        self._grad_sl = LabelledSlider(
+            s, "Radius", from_=5, to=120, initial=60,
+            fmt="{:.0f}", **kw)
+        self._grad_sl.pack(fill="x", pady=2)
+        tk.Label(s, text="  Larger → more spatial smoothing",
+                 bg=bg, fg="#888", font=("Helvetica", 8)).pack(anchor="w")
+
+        self._geps_sl = LabelledSlider(
+            s, "ε  (epsilon)", from_=0.0001, to=0.01, initial=0.001,
+            fmt="{:.4f}", **kw)
+        self._geps_sl.pack(fill="x", pady=2)
+        tk.Label(s, text="  Larger → softer edge preservation",
+                 bg=bg, fg="#888", font=("Helvetica", 8)).pack(anchor="w")
+
+        # ── Background light ──────────────────────────────────────────────
+        section("Background Light")
+        tk.Label(s, text="Estimation of the water-body illuminant B",
+                 bg=bg, fg="#666", font=("Helvetica", 8),
+                 wraplength=265).pack(anchor="w", pady=(0, 4))
+
+        self._bgfrac_sl = LabelledSlider(
+            s, "Top fraction", from_=0.0001, to=0.02, initial=0.001,
+            fmt="{:.4f}", **kw)
+        self._bgfrac_sl.pack(fill="x", pady=2)
+        tk.Label(s, text="  % of prior pixels used as BG candidates",
+                 bg=bg, fg="#888", font=("Helvetica", 8)).pack(anchor="w")
+
+        # ── CLAHE tile size ───────────────────────────────────────────────
+        section("CLAHE Tile Grid")
+        tk.Label(s, text="Grid size for local histogram equalisation",
+                 bg=bg, fg="#666", font=("Helvetica", 8),
+                 wraplength=265).pack(anchor="w", pady=(0, 4))
+
+        self._ctile_sl = LabelledSlider(
+            s, "Tile size", from_=2, to=16, initial=8,
+            fmt="{:.0f}", **kw)
+        self._ctile_sl.pack(fill="x", pady=2)
+        tk.Label(s, text="  Smaller → finer local contrast regions",
+                 bg=bg, fg="#888", font=("Helvetica", 8)).pack(anchor="w")
+
+        # ── Reset ─────────────────────────────────────────────────────────
+        tk.Label(s, bg=bg).pack(pady=4)
+        ttk.Button(s, text="↺  Reset Advanced to Defaults",
+                   command=self._reset_advanced).pack(fill="x")
+        tk.Label(s, bg=bg).pack(pady=8)
+
+    def _reset_advanced(self):
+        self._grad_sl.set(60)
+        self._geps_sl.set(0.001)
+        self._bgfrac_sl.set(0.001)
+        self._ctile_sl.set(8)
+        self._schedule_preview()
+
+    # ── About tab ─────────────────────────────────────────────────────────────
+
+    def _fill_about_tab(self, s: tk.Frame):
+        import webbrowser
+        bg = SIDEBAR_BG
+
+        tk.Label(s, bg=bg).pack(pady=14)
+
+        tk.Label(s, text="🌊  AquaCol",
+                 bg=bg, fg="#1a3a5c",
+                 font=("Helvetica", 16, "bold")).pack()
+        tk.Label(s, text="Underwater Image Enhancement",
+                 bg=bg, fg="#4a7a9b",
+                 font=("Helvetica", 10, "italic")).pack(pady=(2, 14))
+
+        ttk.Separator(s, orient="horizontal").pack(fill="x", pady=(0, 12))
+
+        tk.Label(s, text="Author",
+                 bg=bg, fg="#1a3a5c",
+                 font=("Helvetica", 9, "bold")).pack(anchor="w")
+        tk.Label(s, text="Arnaud LINA",
+                 bg=bg, fg="#222",
+                 font=("Helvetica", 13, "bold")).pack(anchor="w", pady=(2, 10))
+
+        ttk.Separator(s, orient="horizontal").pack(fill="x", pady=(0, 12))
+
+        tk.Label(s, text="Instagram",
+                 bg=bg, fg="#1a3a5c",
+                 font=("Helvetica", 9, "bold")).pack(anchor="w")
+        insta_url = "https://www.instagram.com/halmtl/"
+        link = tk.Label(s, text="@halmtl",
+                        bg=bg, fg="#c13584",
+                        font=("Helvetica", 11, "underline"),
+                        cursor="hand2")
+        link.pack(anchor="w", pady=(2, 0))
+        link.bind("<Button-1>", lambda _: webbrowser.open(insta_url))
+        tk.Label(s, text=insta_url,
+                 bg=bg, fg="#aaa",
+                 font=("Helvetica", 7),
+                 wraplength=265, anchor="w").pack(anchor="w", pady=(0, 12))
+
+        ttk.Separator(s, orient="horizontal").pack(fill="x", pady=(0, 12))
+
+        tk.Label(s, text="Based on",
+                 bg=bg, fg="#1a3a5c",
+                 font=("Helvetica", 9, "bold")).pack(anchor="w")
+        tk.Label(s,
+                 text=(
+                     "• Red Channel Prior (RCP)\n"
+                     "• Dark Channel Prior\n"
+                     "  He et al., IEEE TPAMI 2011\n"
+                     "• Inversion method\n"
+                     "  Galdran et al., JVCIR 2015"
+                 ),
+                 bg=bg, fg="#555",
+                 font=("Helvetica", 8),
+                 justify="left", anchor="w",
+                 wraplength=265).pack(anchor="w")
+
+        tk.Label(s, bg=bg).pack(pady=8)
 
     # ── Image area ────────────────────────────────────────────────────────────
 
@@ -890,12 +1053,19 @@ class App(tk.Tk):
         patch_size_v: int   = max(3, int(round(self._patch_sl.value)))
         omega_v:      float = round(self._omega_sl.value,  3)
         t_min_v:      float = round(self._tmin_sl.value,   3)
-        guided_v:     bool  = bool(self._guided_var.get())
-        wb_v:         bool  = bool(self._wb_var.get())
-        denoise_v:    bool  = bool(self._denoise_var.get())
-        clahe_v:      bool  = bool(self._clahe_var.get())
-        method_v:     str   = self._method_var.get()
-        water_v:      str   = self._water_var.get()
+        guided_v:            bool  = bool(self._guided_var.get())
+        guided_radius_v:     int   = max(1, int(round(self._grad_sl.value)))
+        guided_eps_v:        float = round(self._geps_sl.value, 4)
+        wb_v:                bool  = bool(self._wb_var.get())
+        wb_max_gain_v:       float = round(self._wb_gain_sl.value, 1)
+        denoise_v:           bool  = bool(self._denoise_var.get())
+        denoise_strength_v:  int   = max(1, int(round(self._denoise_sl.value)))
+        clahe_v:             bool  = bool(self._clahe_var.get())
+        clahe_clip_v:        float = round(self._clahe_sl.value, 1)
+        clahe_tile_v:        int   = max(2, int(round(self._ctile_sl.value)))
+        bg_frac_v:           float = round(self._bgfrac_sl.value, 4)
+        method_v:            str   = self._method_var.get()
+        water_v:             str   = self._water_var.get()
 
         tag = "(preview)" if is_preview else "(full resolution)"
         self._set_status(f"Enhancing… {tag}")
@@ -911,9 +1081,16 @@ class App(tk.Tk):
                     omega=omega_v,
                     t_min=t_min_v,
                     use_guided_filter=guided_v,
+                    guided_radius=guided_radius_v,
+                    guided_epsilon=guided_eps_v,
                     apply_white_balance=wb_v,
+                    wb_max_gain=wb_max_gain_v,
                     apply_denoise=denoise_v,
+                    denoise_strength=denoise_strength_v,
                     apply_clahe_post=clahe_v,
+                    clahe_clip=clahe_clip_v,
+                    clahe_tile=clahe_tile_v,
+                    bg_top_fraction=bg_frac_v,
                     method=method_v,
                     water_type=water_v,
                 )
