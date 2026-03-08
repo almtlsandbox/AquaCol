@@ -15,6 +15,11 @@ venv/
 *.bmp
 *.webp
 
+# PyInstaller build artefacts
+build/
+dist/
+*.spec
+
 # IDE / OS
 .vscode/
 .idea/
