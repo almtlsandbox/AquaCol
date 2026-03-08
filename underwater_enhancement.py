@@ -61,6 +61,8 @@ Usage
 
 from __future__ import annotations
 
+__version__ = "1.0.0"
+
 import os
 import argparse
 
@@ -960,6 +962,7 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    p.add_argument("--version", action="version", version=f"AquaCol {__version__}")
     p.add_argument(
         "input", nargs="?",
         help="Path to input underwater image. Omit together with --demo to run demo.",

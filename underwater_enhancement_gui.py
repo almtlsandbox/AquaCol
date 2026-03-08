@@ -37,6 +37,7 @@ import numpy as np
 from PIL import Image, ImageTk
 
 from underwater_enhancement import (
+    __version__,
     enhance_underwater_image,
     diagnose_channels,
     compute_metrics,
@@ -376,7 +377,7 @@ class App(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("Underwater Image Enhancement")
+        self.title(f"AquaCol {__version__} — Underwater Image Enhancement")
         self.minsize(1050, 700)
         self.geometry("1280x800")
 
@@ -768,7 +769,10 @@ class App(tk.Tk):
                  font=("Helvetica", 16, "bold")).pack()
         tk.Label(s, text="Underwater Image Enhancement",
                  bg=bg, fg="#4a7a9b",
-                 font=("Helvetica", 10, "italic")).pack(pady=(2, 14))
+                 font=("Helvetica", 10, "italic")).pack(pady=(2, 4))
+        tk.Label(s, text=f"v{__version__}",
+                 bg=bg, fg="#8aabb0",
+                 font=("Helvetica", 9)).pack(pady=(0, 14))
 
         ttk.Separator(s, orient="horizontal").pack(fill="x", pady=(0, 12))
 
